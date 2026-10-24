@@ -2,8 +2,6 @@
 
 A Python data-engineering pipeline that measures the *current community buzz* around 10 popular open-source projects. It collects data every day from three public sources, combines it into one comparable score, stores the history in a database, analyses it, trains a small prediction model, and shows everything in a live dashboard.
 
-> Data Engineering Mini Project (CA1) · Author: Vaishali Sahaj
-
 ## Why this project
 
 GitHub stars show how popular a project *has been*, but not whether people are discussing it *today*. DevBuzz combines three signals into one daily **buzz score** so projects can be compared and tracked over time.
