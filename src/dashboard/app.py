@@ -15,7 +15,7 @@ DB_PATH = "db/devbuzz.db"
 
 st.set_page_config(page_title="DevBuzz Dashboard", layout="wide")
 
-# --- Data loading (cached so the DB isn't re-queried on every click) ---
+# --- Data loading ---
 @st.cache_data
 def load_buzz_daily():
     conn = sqlite3.connect(DB_PATH)
@@ -38,7 +38,6 @@ latest = df.sort_values("date").groupby("full_name").tail(1)
 st.title("DevBuzz — Live Dashboard")
 st.caption("Open-Source Trend & Community Engagement Pipeline")
 
-# The trend chart shows every repo; use the chart legend to hide or isolate lines.
 selected_repos = sorted(df["full_name"].unique())
 
 # --- Top metrics ---
@@ -48,6 +47,18 @@ c2.metric("Days collected", df["date"].nunique())
 c3.metric("Data sources", 3)
 top_repo = latest.sort_values("buzz_score", ascending=False).iloc[0]
 c4.metric("Top buzz score", f"{top_repo['buzz_score']:.3f}", top_repo["full_name"])
+# --- Downloadable project report (files live in the reports/ folder) ---
+REPORT_FILES = [
+    ("Download report (PDF)", "DevBuzz_Project_Report.pdf", "application/pdf"),
+    ("Download report (Word)", "DevBuzz_Project_Report.docx",
+     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+]
+dl_cols = st.columns([1, 1, 3])
+for dl_col, (label, fname, mime) in zip(dl_cols, REPORT_FILES):
+    report_path = os.path.join("reports", fname)
+    if os.path.exists(report_path):
+        with open(report_path, "rb") as f:
+            dl_col.download_button(label, f.read(), file_name=fname, mime=mime, use_container_width=True)
 
 tab0, tab1, tab2, tab3, tab4 = st.tabs(["Pipeline", "Ranking & Trend", "Correlation", "Prediction Model", "Raw Data"])
 
@@ -63,7 +74,6 @@ STAGE_ACTIVE = {
     5: ["load", "db"],
     6: [],
 }
-# Text printed by run_pipeline.py that tells us which stage has started
 STAGE_MARKERS = [
     ("GitHub ingestion", 1),
     ("Stack Overflow ingestion", 2),
@@ -220,8 +230,7 @@ with tab0:
     run_replay = b2.button("Replay last run (no API calls)", use_container_width=True,
                            help="Animates the same stages using data already stored in the database.")
     st.caption("Live run calls the real APIs (Stack Exchange allows 300 requests per day). "
-               "Running it again on the same day is safe: today's rows are updated, never duplicated. "
-               "Use the replay if you only want to demonstrate the flow.")
+               "Running it again on the same day is safe: today's rows are updated, never duplicated. ")
 
     diagram_slot = st.empty()
     status_slot = st.empty()
@@ -325,7 +334,7 @@ with tab1:
     st.subheader("Current buzz score ranking")
     ranking = latest.sort_values("buzz_score", ascending=False)
     st.bar_chart(ranking.set_index("full_name")["buzz_score"])
-    st.caption("Snapshot of each repo's most recent buzz_score — taller bar means more buzz right now.")
+    st.caption("Snapshot of each repo's most recent buzz_score, taller bar means more buzz right now.")
 
     st.subheader("Buzz score trend over time")
     trend = (
@@ -387,7 +396,7 @@ with tab2:
                       color="black", fontsize=9)
     fig_h.colorbar(im, ax=ax_h, label="Pearson r")
     st.pyplot(fig_h)
-    st.caption("Every metric correlated against every other metric at once — greener means a stronger "
+    st.caption("Every metric correlated against every other metric at once, greener means a stronger "
                "positive relationship, redder means a stronger negative one.")
 
     st.subheader("Stars vs. each metric")
@@ -441,14 +450,23 @@ with tab3:
     y = feat_df["still_trending"].astype(int).values
 
     final_scaler = StandardScaler()
-    final_model = LogisticRegression(max_iter=1000).fit(final_scaler.fit_transform(X), y)
+    X_scaled = final_scaler.fit_transform(X)
+    final_model = LogisticRegression(max_iter=1000).fit(X_scaled, y)
     coef_df = pd.DataFrame({"feature": FEATURES, "coefficient": final_model.coef_[0]}).sort_values("coefficient")
     st.subheader("Feature coefficients")
     st.bar_chart(coef_df.set_index("feature"))
     st.caption("Standardized coefficients from the final model (trained on all repos) — positive bars push "
                "the prediction toward 'trending', negative bars push away from it.")
-    # st.caption("Model evaluation (Leave-One-Out cross-validation against a majority-class baseline) is run by "
-    #            "src/model/train_model.py and reported in the project report.")
+
+    # --- Per-repo predictions (downloadable) ---
+    st.subheader("Predictions per repo")
+    pred_df = feat_df[["full_name"]].copy()
+    pred_df["actual_still_trending"] = y
+    pred_df["predicted_still_trending"] = final_model.predict(X_scaled)
+    pred_df["probability_trending"] = final_model.predict_proba(X_scaled)[:, 1].round(4)
+    st.dataframe(pred_df, use_container_width=True, hide_index=True)
+    st.download_button("Download predictions as CSV", pred_df.to_csv(index=False),
+                       "devbuzz_predictions.csv", "text/csv")
 
 # --- Tab 4: Raw Data ---
 with tab4:

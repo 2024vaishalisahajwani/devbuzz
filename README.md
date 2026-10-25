@@ -66,7 +66,7 @@ devbuzz/
 ├── .streamlit/config.toml     # dashboard theme
 ├── data/processed/            # cleaned CSVs (buzz_scores, model_features)
 ├── db/devbuzz.db              # SQLite database (repos + buzz_daily history)
-├── reports/figures/           # generated charts
+├── reports/                   # DevBuzz_Project_Report (.pdf / .docx) + figures/ (generated charts)
 ├── src/
 │   ├── ingestion/             # github_ingest.py, stackoverflow_ingest.py, hn_search.py
 │   ├── transform/             # buzz_score.py
@@ -92,7 +92,7 @@ devbuzz/
 **1. Clone and set up**
 
 ```bash
-git clone https://github.com/<your-username>/devbuzz.git
+git clone https://github.com/2024vaishalisahajwani/devbuzz.git
 cd devbuzz
 python -m venv venv
 venv\Scripts\activate          # Windows
@@ -127,12 +127,12 @@ The repository already includes a populated `db/devbuzz.db`, so the dashboard wo
 
 ## Dashboard
 
-Five tabs:
+Under the header there are download buttons for the full project report (PDF and Word). Five tabs:
 
 - **Pipeline** - a left-to-right flow diagram from the three sources to the dashboard. **Run pipeline (live)** executes `src/run_pipeline.py` for real and lights up each stage as it runs (orange = working, green = finished), with a progress bar and live log. **Replay last run (no API calls)** animates the same stages from data already in the database. Below the diagram: live counts for each stage, a stage-by-stage table, and a "Follow one repo through the pipeline" walkthrough.
 - **Ranking & Trend** - current buzz score ranking and an interactive trend chart for all repos. Click a repo name in the chart legend to hide it, or double-click to show only that repo.
 - **Correlation** - heatmap and stars-vs-metric scatter plots.
-- **Prediction Model** - standardised feature coefficients of the final logistic regression model. The full evaluation (Leave-One-Out cross-validation against a majority-class baseline) is run by `src/model/train_model.py` and described below.
+- **Prediction Model** - standardised feature coefficients of the final logistic regression model, plus a per-repo predictions table with CSV download (in-sample, labelled as such). The full evaluation (Leave-One-Out cross-validation against a majority-class baseline) is run by `src/model/train_model.py` and described below.
 - **Raw Data** - the joined table with CSV export (the empty `forks` / `open_issues` columns are hidden from the display; see limitations).
 
 > The live run needs your API keys in `.env` and uses real API quota (Stack Exchange allows 300 requests per day). Running it twice on the same day is safe: today's rows are updated, never duplicated. The pipeline run covers extraction, transformation and loading; `build_features.py` and `train_model.py` are run separately.
